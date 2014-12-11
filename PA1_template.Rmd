@@ -11,7 +11,6 @@ output: html_document
 
 ```{r preprocessing}
 activity <- read.csv("activity.csv")
-head(activity)
 ```
 
 2. Process/transform the data (if necessary) into a format suitable for your analysis.
@@ -25,7 +24,10 @@ For this part of the assignment, you can ignore the missing values in the datase
 1. Make a histogram of the total number of steps taken each day
 
 ```{r}
+# The total number of steps taken each day
 totalStepsPerDay = aggregate(steps ~ date, data=activity, FUN=sum)
+
+# Barplot
 barplot(totalStepsPerDay$steps, 
         names.arg=totalStepsPerDay$date, xlab="date", ylab="steps")
 ```
@@ -33,8 +35,11 @@ barplot(totalStepsPerDay$steps,
 2. Calculate and report the mean and median total number of steps taken per day
 
 ```{r}
-mean(totalStepsPerDay$steps)
-mean(totalStepsPerDay$steps)
+# The mean total number of steps per day
+avgTotalStepsPerDay <- mean(totalStepsPerDay$steps); print(avgTotalStepsPerDay)
+
+# The median total number of steps per day
+medTotalStepsPerDay <- median(totalStepsPerDay$steps); print(medTotalStepsPerDay)
 ```
 
 ## What is the average daily activity pattern?
@@ -42,18 +47,22 @@ mean(totalStepsPerDay$steps)
 1. Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
 
 ```{r}
+# The average number of the 5-minute interval across all days 
 avg5MinInterval <- aggregate(steps ~ interval, data=activity, FUN=mean)
+
+# Plot
 plot(avg5MinInterval, type="l")
 ```
 
 2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
 
 ```{r}
+# The 5-minute interval that contains the maximum number of steps
 maxStepsInterval <- avg5MinInterval$interval[which.max(avg5MinInterval$steps)]
 print(maxStepsInterval)
 ```
 
-The `r maxStepsInterval`-th data contains the maximum number of steps.
+*The `r maxStepsInterval`-th data contains the maximum number of steps.*
 
 ## Imputing missing values
 
@@ -61,11 +70,62 @@ Note that there are a number of days/intervals where there are missing values (c
 
 1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs).
 
+```{r}
+# The missing values of each column
+stepsNA <- is.na(activity$steps)
+dateNA <- is.na(activity$date)
+intervalNA <- is.na(activity$interval)
+
+# The number of missing values of each column
+stepsNumNA <- sum(stepsNA); print(stepsNumNA)
+dateNumNA <- sum(dateNA); print(dateNumNA)
+intervalNumNA <- sum(intervalNA); print(intervalNumNA)
+```
+
+*There are `r stepsNumNA`, `r dateNumNA`, `r intervalNumNA` of missing values in the dataset of steps, date, and interval, respectively.*
+
 2. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+
+*The mean of the 5-minute interval will be used to fill the missing values.*
+
+```{r}
+# The mean of the 5-minute interval that will be used to fill
+head(avg5MinInterval)
+```
 
 3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
 
+```{r}
+activity <- merge(activity, avg5MinInterval, by="interval", suffixes=c("",".y"))
+activity$steps[stepsNA] <- activity$steps.y[stepsNA]
+activity <- activity[,c(1:3)]
+```
+
 4. Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+```{r}
+# The average number of the 5-minute interval across all days without missing data
+totalStepsPerDayFilled = aggregate(steps ~ date, data=activity, FUN=sum)
+
+# Plot
+barplot(totalStepsPerDayFilled$steps, 
+        names.arg=totalStepsPerDayFilled$date, xlab="date", ylab="steps")
+
+# The mean and median total number of steps per day without missing data
+avgTotalStepsPerDayFilled <- mean(totalStepsPerDayFilled$steps); 
+print(avgTotalStepsPerDayFilled)
+
+medTotalStepsPerDayFilled <- median(totalStepsPerDayFilled$steps); 
+print(medTotalStepsPerDayFilled)
+
+# The difference of the data with and without missing data
+dAvg <- abs(avgTotalStepsPerDay - avgTotalStepsPerDayFilled); print(dAvg)
+dMed <- abs(medTotalStepsPerDay - medTotalStepsPerDayFilled); print(dMed)
+```
+
+*The mean and median of total number of steps per day are changed from `r avgTotalStepsPerDay` to `r avgTotalStepsPerDayFilled` and from `r medTotalStepsPerDay` to `r medTotalStepsPerDayFilled`.*
+
+*The difference of mean and median between two data sets are `r dAvg` and `r dMed`, respectively.*
 
 ## Are there differences in activity patterns between weekdays and weekends?
 
@@ -73,6 +133,42 @@ For this part the weekdays() function may be of some help here. Use the dataset 
 
 1. Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
 
+```{r, cache=TRUE}
+# Boolean Function isWeekday(date)
+isWeekday <- function(date) {
+  if (weekdays(as.Date(date)) %in% c("Saturday", "Sunday")) {
+    isWeekday <- FALSE
+  }
+  else {
+    isWeekday <- TRUE
+  }
+}
+
+# Acitvity data with isWeekday column
+activity$isWeekday <- as.factor(sapply(activity$date, isWeekday))
+```
+
 2. Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). The plot should look something like the following, which was creating using simulated data:
 
+```{r}
+stepsWeekend <- aggregate(steps ~ interval,
+                          data=activity,
+                          subject=activity$isWeekday==FALSE,
+                          FUN=mean)
+stepsWeekday <- aggregate(steps ~ interval,
+                          data=activity,
+                          subject=activity$isWeekday==TRUE,
+                          FUN=mean)
+
+# Plot
+par(mfrow = c(2,1))
+plot(stepsWeekend, type="l", main="weekend")
+plot(stepsWeekday, type="l", main="weekday")
+
+# Copy a plot into file
+dev.copy(png, file="./figures/stepsWeekday.png")
+dev.off()
+```
+
 **Your plot will look different from the one above** because you will be using the activity monitor data. Note that the above plot was made using the lattice system but you can make the same version of the plot using any plotting system you choose.
+
